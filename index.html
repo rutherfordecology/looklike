@@ -297,6 +297,44 @@
   .badge-inat { background: rgba(79,156,249,0.15); color: var(--accent); border: 1px solid rgba(79,156,249,0.3); }
   .badge-gbif { background: rgba(82,199,138,0.15); color: var(--green); border: 1px solid rgba(82,199,138,0.3); }
   .badge-none { background: rgba(224,92,92,0.12); color: var(--red); border: 1px solid rgba(224,92,92,0.25); }
+  .card-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+  }
+  .card-links a {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.15s;
+  }
+  .card-links a:hover { color: var(--accent); }
+  .photo-legend {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 10px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.02em;
+  }
+  .gallery-about {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-bottom: 18px;
+    line-height: 1.6;
+  }
+  .gallery-about strong { color: var(--text); }
 
   /* ─── Lightbox ─── */
   #lightbox {
@@ -362,7 +400,7 @@
 
 <header>
   <div class="logo"><img src="Logo-long.png" alt="LookLike?"></div>
-  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.02</span></div>
+  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.03</span></div>
   <div id="filter-wrap">
     <input id="filter-input" type="search" placeholder="Filter species…" autocomplete="off">
   </div>
@@ -384,6 +422,10 @@
 
 <!-- Gallery -->
 <div id="gallery">
+  <div class="gallery-about">
+    <strong>Left photo</strong> — iNaturalist taxon photo (representative image for the species) &nbsp;·&nbsp;
+    <strong>Right photo</strong> — GBIF occurrence record photo (an actual field or museum record). Use ‹ › to cycle through up to 5 record photos. Click any photo to enlarge.
+  </div>
   <div id="species-grid"></div>
 </div>
 
@@ -496,11 +538,16 @@ function createCardSkeleton(name, idx) {
         <span class="slot-label">GBIF</span>
       </div>
     </div>
+    <div class="photo-legend">
+      <span>← Taxon photo</span>
+      <span>Record photo →</span>
+    </div>
     <div class="card-body">
       <div class="sci-name">${escHtml(name)}</div>
       <div class="common-name">Loading…</div>
       <div class="badges"></div>
-    </div>`;
+    </div>
+    <div class="card-links"></div>`;
   return card;
 }
 
@@ -520,6 +567,7 @@ async function loadCard(idx) {
     const { photoUrl, commonName, taxonId } = inatRes.value;
     card.commonName = commonName;
     card.inatPhoto = photoUrl;
+    card.inatTaxonId = taxonId || null;
     el.querySelector('.common-name').textContent = commonName || '—';
     if (photoUrl) {
       renderPhoto(inatSlot, photoUrl, `${card.name} — iNaturalist`, card.name, commonName);
@@ -543,6 +591,8 @@ async function loadCard(idx) {
     renderNoPhoto(gbifSlot);
     addBadge(el, 'none', 'GBIF ✗');
   }
+
+  updateCardLinks(card);
 }
 
 // ─── Render helpers ──────────────────────────────────────────────
@@ -563,14 +613,14 @@ function renderPhoto(slot, url, alt, sciName, commonName) {
 function renderGBIFSlot(card, slot) {
   const photos = card.gbifPhotos;
   const idx = card.gbifIdx;
+  const photo = photos[idx];
   slot.innerHTML = `<span class="slot-label">GBIF</span>`;
 
   const img = document.createElement('img');
-  img.src = photos[idx];
+  img.src = photo.url;
   img.alt = card.name + ' — GBIF';
   img.loading = 'lazy';
   img.addEventListener('error', () => {
-    // try next photo on error
     if (card.gbifIdx < card.gbifPhotos.length - 1) {
       card.gbifIdx++;
       renderGBIFSlot(card, slot);
@@ -580,16 +630,14 @@ function renderGBIFSlot(card, slot) {
   });
   img.addEventListener('click', (e) => {
     e.stopPropagation();
-    openLightbox(photos[idx], card.name, card.commonName);
+    openLightbox(photo.url, card.name, card.commonName);
   });
   slot.insertBefore(img, slot.firstChild);
 
   if (photos.length > 1) {
     const nav = document.createElement('div');
     nav.className = 'gbif-nav';
-    nav.innerHTML = `
-      <button title="Previous">‹</button>
-      <button title="Next">›</button>`;
+    nav.innerHTML = `<button title="Previous">‹</button><button title="Next">›</button>`;
     const counter = document.createElement('span');
     counter.className = 'gbif-counter';
     counter.textContent = `${idx + 1}/${photos.length}`;
@@ -600,13 +648,32 @@ function renderGBIFSlot(card, slot) {
       e.stopPropagation();
       card.gbifIdx = (card.gbifIdx - 1 + photos.length) % photos.length;
       renderGBIFSlot(card, slot);
+      updateCardLinks(card);
     });
     nav.children[1].addEventListener('click', (e) => {
       e.stopPropagation();
       card.gbifIdx = (card.gbifIdx + 1) % photos.length;
       renderGBIFSlot(card, slot);
+      updateCardLinks(card);
     });
   }
+}
+
+function updateCardLinks(card) {
+  const linksEl = card.el.querySelector('.card-links');
+  if (!linksEl) return;
+  const photo = card.gbifPhotos[card.gbifIdx];
+  const src = photo ? sourceLink(photo) : null;
+  const gbifHref = photo && photo.gbifID
+    ? `https://www.gbif.org/occurrence/${photo.gbifID}` : null;
+  const inatHref = card.inatTaxonId
+    ? `https://www.inaturalist.org/taxa/${card.inatTaxonId}` : null;
+
+  let html = '';
+  if (inatHref) html += `<a href="${inatHref}" target="_blank" rel="noopener">iNaturalist taxon ↗</a>`;
+  if (gbifHref) html += `<a href="${gbifHref}" target="_blank" rel="noopener">GBIF record ↗</a>`;
+  if (src)      html += `<a href="${escHtml(src.url)}" target="_blank" rel="noopener">${escHtml(src.label)} ↗</a>`;
+  linksEl.innerHTML = html || '<span style="color:var(--border)">No links available</span>';
 }
 
 function renderNoPhoto(slot) {
@@ -665,13 +732,37 @@ async function fetchGBIF(name) {
   for (const occ of (data.results || [])) {
     for (const med of (occ.media || [])) {
       if (med.type === 'StillImage' && med.identifier) {
-        photos.push(med.identifier);
+        photos.push({
+          url:             med.identifier,
+          gbifID:          occ.gbifID || occ.key || null,
+          occurrenceID:    occ.occurrenceID || null,
+          references:      occ.references || med.references || null,
+          institutionCode: occ.institutionCode || null,
+          datasetKey:      occ.datasetKey || null,
+        });
         if (photos.length >= 5) break;
       }
     }
     if (photos.length >= 5) break;
   }
   return photos;
+}
+
+// Port of Occurd's sourceLink — resolves the best direct link for an occurrence
+function sourceLink(rec) {
+  if (!rec) return null;
+  const id  = (rec.occurrenceID || '').trim();
+  if (/^https?:\/\/(www\.)?inaturalist\.org\//i.test(id))  return { label: 'iNaturalist', url: id };
+  if (/xeno-canto/i.test(id))                               return { label: 'Xeno-canto', url: id };
+  if (/URN:catalog:CLO:EBIRD/i.test(id))                   return null; // login required
+  const isNHM = rec.datasetKey === '7e380070-f762-11e1-a439-00145eb45e9a' || rec.institutionCode === 'NHMUK';
+  if (isNHM && /^[0-9a-f-]{36}$/i.test(id))
+    return { label: 'NHM London', url: 'https://data.nhm.ac.uk/object/' + id };
+  if (/^https?:\/\//i.test(id)) return { label: 'Source record', url: id };
+  const ref = (rec.references || '').trim();
+  if (/xeno-canto/i.test(ref))   return { label: 'Xeno-canto', url: ref };
+  if (/^https?:\/\//i.test(ref)) return { label: 'Source record', url: ref };
+  return null;
 }
 
 // ─── Utils ───────────────────────────────────────────────────────
