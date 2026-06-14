@@ -362,7 +362,7 @@
 
 <header>
   <div class="logo"><img src="Logo-long.png" alt="LookLike?"></div>
-  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.01</span></div>
+  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.02</span></div>
   <div id="filter-wrap">
     <input id="filter-input" type="search" placeholder="Filter species…" autocomplete="off">
   </div>
@@ -675,6 +675,20 @@ async function fetchGBIF(name) {
 }
 
 // ─── Utils ───────────────────────────────────────────────────────
+// Auto-load from URL param ?s=name1|name2|...
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const s = params.get('s');
+  if (!s) return;
+  const names = s.split('|').map(n => decodeURIComponent(n).trim()).filter(Boolean);
+  if (!names.length) return;
+  input.value = names.join('\n');
+  state.names = names;
+  grid.innerHTML = '';
+  buildGrid(names);
+  showGallery();
+})();
+
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
