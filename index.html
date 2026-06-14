@@ -400,7 +400,7 @@
 
 <header>
   <div class="logo"><img src="Logo-long.png" alt="LookLike?"></div>
-  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.04</span></div>
+  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.05</span></div>
   <div id="filter-wrap">
     <input id="filter-input" type="search" placeholder="Filter species…" autocomplete="off">
   </div>
@@ -574,7 +574,7 @@ async function loadCard(idx) {
     } else {
       renderNoPhoto(inatSlot);
     }
-    addBadge(el, 'inat', taxonId ? `iNat #${taxonId}` : 'iNat ✓');
+    addBadge(el, 'inat', 'iNat ✓');
   } else {
     el.querySelector('.common-name').textContent = '—';
     renderNoPhoto(inatSlot);
@@ -666,11 +666,8 @@ function updateCardLinks(card) {
   const src = photo ? sourceLink(photo) : null;
   const gbifHref = photo && photo.gbifID
     ? `https://www.gbif.org/occurrence/${photo.gbifID}` : null;
-  const inatHref = card.inatTaxonId
-    ? `https://www.inaturalist.org/taxa/${card.inatTaxonId}` : null;
 
   let html = '';
-  if (inatHref) html += `<a href="${inatHref}" target="_blank" rel="noopener">iNaturalist taxon ↗</a>`;
   if (gbifHref) html += `<a href="${gbifHref}" target="_blank" rel="noopener">GBIF record ↗</a>`;
   if (src)      html += `<a href="${escHtml(src.url)}" target="_blank" rel="noopener">${escHtml(src.label)} ↗</a>`;
   linksEl.innerHTML = html || '<span style="color:var(--border)">No links available</span>';
