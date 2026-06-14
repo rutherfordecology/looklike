@@ -400,7 +400,7 @@
 
 <header>
   <div class="logo"><img src="Logo-long.png" alt="LookLike?"></div>
-  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.03</span></div>
+  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.04</span></div>
   <div id="filter-wrap">
     <input id="filter-input" type="search" placeholder="Filter species…" autocomplete="off">
   </div>
@@ -730,18 +730,17 @@ async function fetchGBIF(name) {
   const data = await res.json();
   const photos = [];
   for (const occ of (data.results || [])) {
-    for (const med of (occ.media || [])) {
-      if (med.type === 'StillImage' && med.identifier) {
-        photos.push({
-          url:             med.identifier,
-          gbifID:          occ.gbifID || occ.key || null,
-          occurrenceID:    occ.occurrenceID || null,
-          references:      occ.references || med.references || null,
-          institutionCode: occ.institutionCode || null,
-          datasetKey:      occ.datasetKey || null,
-        });
-        if (photos.length >= 5) break;
-      }
+    // One photo per record — take the first StillImage only
+    const med = (occ.media || []).find(m => m.type === 'StillImage' && m.identifier);
+    if (med) {
+      photos.push({
+        url:             med.identifier,
+        gbifID:          occ.gbifID || occ.key || null,
+        occurrenceID:    occ.occurrenceID || null,
+        references:      occ.references || med.references || null,
+        institutionCode: occ.institutionCode || null,
+        datasetKey:      occ.datasetKey || null,
+      });
     }
     if (photos.length >= 5) break;
   }
