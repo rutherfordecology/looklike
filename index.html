@@ -400,7 +400,7 @@
 
 <header>
   <div class="logo"><img src="Logo-long.png" alt="LookLike?"></div>
-  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.06</span></div>
+  <div class="header-meta" id="header-meta">Visual species photo browser · <a href="https://www.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="re-link"><span class="re-by">by </span><span class="re-name">Rutherford</span><span class="re-by"> ecology</span></a> <span class="version">v1.07</span></div>
   <div id="filter-wrap">
     <input id="filter-input" type="search" placeholder="Filter species…" autocomplete="off">
   </div>
@@ -557,9 +557,17 @@ async function loadCard(idx) {
   const card = state.cards[idx];
   const el = card.el;
 
+  // Use exact records from Occurd handoff if available
+  const handoff = state.handoff && state.handoff[card.name];
+  const gbifPromise = handoff
+    ? Promise.resolve(handoff.records
+        .filter(r => r.photoUrl)
+        .map(r => ({ url: r.photoUrl, gbifID: r.gbifID, occurrenceID: r.occurrenceID, references: r.references, institutionCode: r.institutionCode, datasetKey: r.datasetKey })))
+    : fetchGBIF(card.name);
+
   const [inatRes, gbifRes] = await Promise.allSettled([
     fetchINat(card.name),
-    fetchGBIF(card.name),
+    gbifPromise,
   ]);
 
   // iNat
@@ -763,8 +771,29 @@ function sourceLink(rec) {
 }
 
 // ─── Utils ───────────────────────────────────────────────────────
-// Auto-load from URL param ?s=name1|name2|...
+// Auto-load — prefer localStorage handoff from Occurd, fall back to ?s= URL param
 (function() {
+  // Try localStorage handoff first
+  try {
+    const raw = localStorage.getItem('looklike_handoff');
+    if (raw) {
+      const data = JSON.parse(raw);
+      localStorage.removeItem('looklike_handoff');
+      if (data.species && data.species.length && Date.now() - data.ts < 5 * 60 * 1000) {
+        const names = data.species.map(s => s.name);
+        input.value = names.join('\n');
+        // Store handoff keyed by species name for loadCard to use
+        state.handoff = {};
+        data.species.forEach(s => { state.handoff[s.name] = s; });
+        grid.innerHTML = '';
+        buildGrid(names);
+        showGallery();
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Fall back to ?s= URL param
   const params = new URLSearchParams(window.location.search);
   const s = params.get('s');
   if (!s) return;
